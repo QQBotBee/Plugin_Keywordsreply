@@ -1,0 +1,16 @@
+# Bee plugin build outputs
+/build/
+/temp/
+/worker_runtime.go
+
+# Native and Go binaries
+*.dll
+*.exe
+*.res
+*.lib
+*.pdb
+
+# Local editor files
+.vscode/
+.idea/
+*.swp
