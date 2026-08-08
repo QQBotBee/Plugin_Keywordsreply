@@ -99,14 +99,27 @@ func SendKeywordReply(target keywordReplyTarget, area TriggerArea, rule KeywordR
 		outcome.Sent = 1
 		return outcome, nil
 	case ReplyAudio:
+		if !isFriendOrGroupArea(area) {
+			return ReplyOutcome{}, fmt.Errorf("%s replies are only supported for friend or group areas", rule.ReplyType)
+		}
 		return sendMediaItems(target.SendAudio, MediaItems(rule.Contents))
 	case ReplyVideo:
+		if !isFriendOrGroupArea(area) {
+			return ReplyOutcome{}, fmt.Errorf("%s replies are only supported for friend or group areas", rule.ReplyType)
+		}
 		return sendMediaItems(target.SendVideo, MediaItems(rule.Contents))
 	case ReplyFile:
+		if !isFriendOrGroupArea(area) {
+			return ReplyOutcome{}, fmt.Errorf("%s replies are only supported for friend or group areas", rule.ReplyType)
+		}
 		return sendMediaItems(target.SendFile, MediaItems(rule.Contents))
 	default:
 		return ReplyOutcome{}, fmt.Errorf("不支持的回复类型 %q", rule.ReplyType)
 	}
+}
+
+func isFriendOrGroupArea(area TriggerArea) bool {
+	return area == AreaFriend || area == AreaGroup
 }
 
 func sendMediaItems(send func(string) (string, error), items []string) (ReplyOutcome, error) {

@@ -119,3 +119,18 @@ func TestSendKeywordReplyDegradesChannelPrivateMarkdown(t *testing.T) {
 		t.Fatalf("outcome=%+v calls=%v", outcome, target.calls)
 	}
 }
+
+func TestSendKeywordReplyRejectsMediaInChannelAreas(t *testing.T) {
+	for _, area := range []TriggerArea{AreaChannel, AreaChannelPrivate} {
+		t.Run(string(area), func(t *testing.T) {
+			target := &recordingReplyTarget{}
+			_, err := SendKeywordReply(target, area, KeywordRule{ReplyType: ReplyAudio, Contents: []string{"clip.mp3"}})
+			if err == nil {
+				t.Fatal("expected media area error")
+			}
+			if len(target.calls) != 0 {
+				t.Fatalf("unexpected calls: %v", target.calls)
+			}
+		})
+	}
+}
