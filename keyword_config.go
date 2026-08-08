@@ -72,6 +72,11 @@ func ValidateRules(rules []KeywordRule) error {
 		if !hasContent(rule.Contents) {
 			return fmt.Errorf("rule %d: reply content is required", i)
 		}
+		if rule.ReplyType == ReplyText {
+			if _, err := ParseTextReply(strings.Join(rule.Contents, "\n")); err != nil {
+				return fmt.Errorf("rule %d: invalid text reply: %w", i, err)
+			}
+		}
 		if isMediaReply(rule.ReplyType) {
 			for _, area := range rule.Areas {
 				if area == AreaChannel || area == AreaChannelPrivate {

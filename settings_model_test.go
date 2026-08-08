@@ -1,6 +1,7 @@
 package main
 
 import (
+	"errors"
 	"reflect"
 	"strings"
 	"testing"
@@ -106,6 +107,45 @@ func TestSettingsControllerRejectsMediaChannel(t *testing.T) {
 	}
 	if len(controller.Rules()) != 0 {
 		t.Fatalf("unexpected rules=%#v", controller.Rules())
+	}
+}
+
+func TestSettingsControllerRejectsInvalidImageMarker(t *testing.T) {
+	store := NewRuleStore(t.TempDir() + "\\keyword_replies.json")
+	controller := NewSettingsController(store)
+	draft := NewRuleDraft()
+	draft.Keyword = "image"
+	draft.AreaFriend = true
+	draft.Content = "hello [图片=]"
+	if err := controller.Add(draft); err == nil {
+		t.Fatal("expected invalid image marker error")
+	}
+	if len(controller.Rules()) != 0 {
+		t.Fatalf("unexpected rules=%#v", controller.Rules())
+	}
+}
+
+func TestSettingsControllerPersistenceFailureDoesNotMutateMemory(t *testing.T) {
+	store := NewRuleStore(t.TempDir() + "\\keyword_replies.json")
+	controller := NewSettingsController(store)
+	draft := NewRuleDraft()
+	draft.Keyword = "one"
+	draft.AreaFriend = true
+	draft.Content = "first"
+	if err := controller.Add(draft); err != nil {
+		t.Fatal(err)
+	}
+	want := controller.Rules()
+	store.replaceFile = func(string, string) error { return errors.New("replace failed") }
+	draft.Content = "changed"
+	if err := controller.Update(0, draft); err == nil {
+		t.Fatal("expected persistence error")
+	}
+	if got := controller.Rules(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("controller mutated: got=%#v want=%#v", got, want)
+	}
+	if got := store.Snapshot(); !reflect.DeepEqual(got, want) {
+		t.Fatalf("store mutated: got=%#v want=%#v", got, want)
 	}
 }
 
