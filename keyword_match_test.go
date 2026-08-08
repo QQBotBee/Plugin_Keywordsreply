@@ -50,6 +50,14 @@ func TestMatchKeywordRule(t *testing.T) {
 			wantOK:  true,
 		},
 		{
+			name:    "ignores case for fuzzy match when configured",
+			rules:   []KeywordRule{{Keyword: "Help", MatchMode: MatchFuzzy, CaseSensitive: false, Areas: []TriggerArea{AreaGroup}}},
+			area:    AreaGroup,
+			message: "please HELP me",
+			want:    "Help",
+			wantOK:  true,
+		},
+		{
 			name:    "skips rules outside active area",
 			rules:   []KeywordRule{{Keyword: "hello", MatchMode: MatchExact, CaseSensitive: true, Areas: []TriggerArea{AreaGroup}}},
 			area:    AreaFriend,

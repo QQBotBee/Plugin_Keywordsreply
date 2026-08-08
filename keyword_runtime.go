@@ -43,6 +43,9 @@ func processKeywordMessage(rules []KeywordRule, target keywordReplyTarget, area 
 		return false, ReplyOutcome{}, nil
 	}
 	outcome, err := SendKeywordReply(target, area, rule)
+	if err != nil {
+		return true, outcome, fmt.Errorf("规则 %q（%s）发送失败: %w", rule.Keyword, rule.ReplyType, err)
+	}
 	return true, outcome, err
 }
 

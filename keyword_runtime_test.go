@@ -3,6 +3,7 @@ package main
 import (
 	"errors"
 	"reflect"
+	"strings"
 	"testing"
 )
 
@@ -51,6 +52,9 @@ func TestHandleKeywordMessageReturnsSendError(t *testing.T) {
 	matched, outcome, err := processKeywordMessage(rules, target, AreaFriend, "hello")
 	if !matched || !errors.Is(err, wantErr) || outcome.Sent != 0 {
 		t.Fatalf("matched=%v outcome=%+v err=%v", matched, outcome, err)
+	}
+	if !strings.Contains(err.Error(), "hello") || !strings.Contains(err.Error(), string(ReplyText)) {
+		t.Fatalf("error lacks rule context: %v", err)
 	}
 }
 

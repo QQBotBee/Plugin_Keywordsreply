@@ -99,6 +99,26 @@ func TestSendKeywordReplyMediaOrderAndStopOnError(t *testing.T) {
 	}
 }
 
+func TestSendKeywordReplyMediaTypes(t *testing.T) {
+	tests := []struct {
+		replyType ReplyType
+		want      string
+	}{
+		{replyType: ReplyAudio, want: "audio:item"},
+		{replyType: ReplyVideo, want: "video:item"},
+		{replyType: ReplyFile, want: "file:item"},
+	}
+	for _, test := range tests {
+		t.Run(string(test.replyType), func(t *testing.T) {
+			target := &recordingReplyTarget{}
+			outcome, err := SendKeywordReply(target, AreaGroup, KeywordRule{ReplyType: test.replyType, Contents: []string{"item"}})
+			if err != nil || outcome.Sent != 1 || !reflect.DeepEqual(target.calls, []string{test.want}) {
+				t.Fatalf("outcome=%+v err=%v calls=%v", outcome, err, target.calls)
+			}
+		})
+	}
+}
+
 func TestSendKeywordReplyMarkdown(t *testing.T) {
 	target := &recordingReplyTarget{}
 	rule := KeywordRule{ReplyType: ReplyMarkdown, Contents: []string{"**hello**", "world"}}
