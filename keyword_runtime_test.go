@@ -96,3 +96,22 @@ func TestKeywordTargetForArea(t *testing.T) {
 		})
 	}
 }
+
+func TestEnsureKeywordRulesInitializesFreshWorker(t *testing.T) {
+	keywordStoreState.Lock()
+	previous := keywordStoreState.store
+	keywordStoreState.store = nil
+	keywordStoreState.Unlock()
+	t.Cleanup(func() {
+		keywordStoreState.Lock()
+		keywordStoreState.store = previous
+		keywordStoreState.Unlock()
+	})
+
+	if err := ensureKeywordRules(&BeeAPI{}); err != nil {
+		t.Fatal(err)
+	}
+	if currentKeywordStore() == nil {
+		t.Fatal("fresh worker did not initialize keyword store")
+	}
+}

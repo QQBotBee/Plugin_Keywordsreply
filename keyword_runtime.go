@@ -12,6 +12,8 @@ var keywordStoreState struct {
 	store *RuleStore
 }
 
+var keywordInitializeMu sync.Mutex
+
 func initializeKeywordRules(bee *BeeAPI) error {
 	if bee == nil {
 		return fmt.Errorf("Bee API 不能为空")
@@ -35,6 +37,18 @@ func currentKeywordStore() *RuleStore {
 	keywordStoreState.RLock()
 	defer keywordStoreState.RUnlock()
 	return keywordStoreState.store
+}
+
+func ensureKeywordRules(bee *BeeAPI) error {
+	if currentKeywordStore() != nil {
+		return nil
+	}
+	keywordInitializeMu.Lock()
+	defer keywordInitializeMu.Unlock()
+	if currentKeywordStore() != nil {
+		return nil
+	}
+	return initializeKeywordRules(bee)
 }
 
 func processKeywordMessage(rules []KeywordRule, target keywordReplyTarget, area TriggerArea, message string) (bool, ReplyOutcome, error) {
@@ -68,8 +82,14 @@ func keywordTargetForArea(bee *BeeAPI, area TriggerArea, targetID string) *Messa
 }
 
 func handleKeywordMessage(bee *BeeAPI, area TriggerArea, targetID, message string) {
+	if bee == nil {
+		return
+	}
+	if err := ensureKeywordRules(bee); err != nil {
+		_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
+	}
 	store := currentKeywordStore()
-	if bee == nil || store == nil {
+	if store == nil {
 		return
 	}
 	target := keywordTargetForArea(bee, area, targetID)

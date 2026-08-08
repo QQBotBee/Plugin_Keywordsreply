@@ -45,7 +45,7 @@ func onInitialize(args [][]byte) {
 	if err != nil {
 		return
 	}
-	if err := initializeKeywordRules(bee); err != nil {
+	if err := ensureKeywordRules(bee); err != nil {
 		_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
 	}
 	_ = bee.Log("插件初始化完成")
@@ -55,9 +55,10 @@ func onInitialize(args [][]byte) {
 func onEnable(args [][]byte) {
 	bee, err := beeFromArgs(args)
 	if err == nil {
+		if err := ensureKeywordRules(bee); err != nil {
+			_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
+		}
 		_ = bee.Log("插件被启用")
-		// dataDir, err := bee.GetAppDataDir()
-		// 应用配置、数据库、缓存和日志统一写入 dataDir。
 	}
 }
 
@@ -85,6 +86,9 @@ func onSettings(args [][]byte) {
 	bee, err := beeFromArgs(args)
 	if err == nil {
 		_ = bee.Log("插件设置被打开")
+		if err := ensureKeywordRules(bee); err != nil {
+			_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
+		}
 	}
 	if err := showSettingsWindow(); err != nil && bee != nil {
 		_ = bee.Log(fmt.Sprintf("插件设置打开失败：%v", err))
