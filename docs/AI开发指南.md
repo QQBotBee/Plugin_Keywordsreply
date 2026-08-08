@@ -20,16 +20,34 @@ bee_go_worker.exe
 
 ## 业务代码位置
 
-主要修改 `plugin_main.go` 中的回调：
+关键词回复功能按职责分为：
 
-- `onChannelPrivate`
-- `onChannelMessage`
-- `onChannelEvent`
-- `onPrivateMessage`
-- `onGroupMessage`
-- `onCommonEvent`
+- `keyword_config.go`：规则枚举、校验、深拷贝快照和原子 JSON 持久化。
+- `keyword_match.go`：区域过滤、精准/模糊匹配和首条规则优先。
+- `keyword_reply.go`：图片标记解析、Markdown 和媒体分发。
+- `keyword_runtime.go`：规则初始化、目标映射和四类消息回调协调。
+- `settings_model.go`：不依赖 Win32 的编辑控制器。
+- `settings.go`：原生 Win32 控件和窗口生命周期。
 
 每次回调都必须使用当前机器人 JSON 创建新的 `BeeAPI`。不要缓存上一条消息的上下文，因为 `msg_id`、`event_id`、`plugin_id` 属于单次回调。
+
+## 规则约束
+
+- 关键词唯一，列表顺序就是匹配优先级，只执行第一条命中规则。
+- 精准匹配比较去除首尾空白后的完整消息；模糊匹配执行包含判断。
+- 大小写敏感默认开启，并按规则独立配置。
+- 触发区域为 `friend`、`group`、`channel`、`channel_private`。
+- 普通消息和 Markdown 支持全部区域；频道私信 Markdown 降级为普通文字。
+- 语音、视频和文件只允许好友与群聊，每个非空内容行按顺序发送。
+- 普通消息最多包含一个 `[图片=路径或网址]` 标记。
+
+配置文件固定为：
+
+```text
+plugin_data\关键词回复插件\keyword_replies.json
+```
+
+保存必须通过 `RuleStore.Replace`，不要从窗口代码直接写文件。控制器只有在原子替换成功后才能更新内存规则。
 
 ## 常用 API
 
@@ -66,4 +84,4 @@ _, _ = bee.ChannelDM(guildID).SendText("私信回复")
 
 ## 验证边界
 
-WSL 可完成 Go 测试、Windows/386 交叉编译和 PE 静态检查；真实 API 调用、重复加载卸载和消息收发必须在 Windows Bee 中验收。
+自动验证运行 `gofmt -w *.go other/buildmeta/*.go other/worker_runtime.go`、`go test ./...`、`go vet ./...` 和 `build.bat KeywordReply.dll`。真实 Bee 还必须检查规则增删改排和重启持久化、四个区域、精准/模糊/大小写、首条优先、图片、Markdown 降级、多行媒体、窗口单实例、禁用关闭以及卸载稳定性。

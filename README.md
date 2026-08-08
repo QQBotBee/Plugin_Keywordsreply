@@ -1,10 +1,10 @@
 <div align="center">
 
-# Bee Go Plugin SDK
+# Bee 关键词回复插件
 
-**使用 Go 开发 Bee 机器人框架插件的生产级模板**
+**为 Bee 机器人框架提供可视化配置的关键词自动回复**
 
-纯 C 插件壳 · 独立 Go Worker · 单 DLL 交付 · 支持安全卸载
+顺序规则 · 四类消息区域 · 图片与媒体回复 · 原生 Windows 设置窗口
 
 ![Go](https://img.shields.io/badge/Go-1.22+-00ADD8?logo=go&logoColor=white)
 ![Platform](https://img.shields.io/badge/Platform-Windows-0078D4?logo=windows&logoColor=white)
@@ -12,7 +12,7 @@
 ![Build](https://img.shields.io/badge/Build-Go%20%2B%20Zig-F7A41D?logo=zig&logoColor=white)
 ![Encoding](https://img.shields.io/badge/Bee-GBK%20%2F%20CP936-blueviolet)
 
-[快速开始](#快速开始) · [开发插件](#开发插件) · [SDK 示例](#sdk-示例) · [架构说明](#架构说明) · [开发文档](#开发文档)
+[快速开始](#快速开始) · [规则行为](#规则行为) · [架构说明](#架构说明) · [开发文档](#开发文档)
 
 </div>
 
@@ -20,9 +20,9 @@
 
 ## 项目简介
 
-Bee Go Plugin SDK 是一套面向 **Bee 机器人框架**的 Go 插件开发模板。
+Bee 关键词回复插件允许管理员在原生 Windows 设置窗口中维护自动回复规则，无需修改源码。规则支持精准或模糊匹配、大小写策略、四种触发区域和五种回复类型，并按列表顺序只执行第一条命中规则。
 
-模板使用“**纯 C Bee 壳 DLL + 独立 Go Worker**”架构：Bee 进程只加载纯 C DLL，Go 业务运行在独立进程中。这样既能使用 Go 编写插件业务，又能避免 Go Runtime 随 DLL 被 `FreeLibrary()` 卸载时引发宿主崩溃。
+插件沿用“**纯 C Bee 壳 DLL + 独立 Go Worker**”架构：Bee 进程只加载纯 C DLL，Go 业务运行在独立进程中，避免 Go Runtime 随 DLL 被 `FreeLibrary()` 卸载时影响宿主稳定性。
 
 最终构建产物仍然只有一个 DLL。Go Worker 会作为资源内嵌在 DLL 中，由插件在运行时自动释放和管理。
 
@@ -43,6 +43,12 @@ Bee Go Plugin SDK 是一套面向 **Bee 机器人框架**的 Go 插件开发模�
 
 ## 核心特性
 
+- **可配置规则列表**：新增、编辑、删除和上下移动后立即持久化。
+- **确定性匹配**：精准/模糊、大小写敏感/不敏感，严格按列表顺序取第一条命中规则。
+- **四种触发区域**：QQ 好友、群聊、频道消息和频道私信。
+- **五种回复类型**：普通消息、原生 Markdown、语音、视频和文件。
+- **图文普通消息**：支持一个 `[图片=本地路径或网址]` 标记。
+- **媒体批量回复**：每个非空行作为一个媒体项按顺序发送，失败时停止剩余发送。
 - **Go 编写插件业务**：生命周期、消息回调和事件处理均可使用 Go 实现。
 - **单 DLL 交付**：Go Worker 作为资源内嵌，无需额外分发 EXE 或运行库。
 - **安全加载与卸载**：Go Runtime 不进入 Bee 宿主进程，规避热卸载风险。
@@ -75,69 +81,69 @@ Bee Go Plugin SDK 是一套面向 **Bee 机器人框架**的 Go 插件开发模�
 
 ## 快速开始
 
-### 1. 获取项目
+### 1. 构建插件
 
-从仓库页面下载源码并解压，或复制仓库页面提供的 Git 地址进行克隆，然后进入项目目录：
-
-```bash
-git clone 仓库地址
-cd Bee开发模板-GOLANG
-```
-
-### 2. 修改插件信息
-
-打开根目录的 `plugin_main.go`：
-
-```go
-const (
-    PluginName        = "我的插件"
-    PluginAuthor      = "作者名称"
-    PluginVersion     = "1.0.0"
-    PluginDescription = "插件功能说明"
-)
-```
-
-`PluginName` 是插件名称的唯一来源，同时决定：
-
-- Bee 插件列表中显示的名称；
-- 默认生成的 DLL 文件名；
-- `plugin_data` 下的插件数据目录名。
-
-### 3. 编写插件业务
-
-业务代码主要写在 `plugin_main.go` 中。模板已经准备好所有生命周期和消息入口。
-
-### 4. 构建插件
-
-在 Windows 中双击：
+在 Windows CMD 中执行：
 
 ```bat
-build.bat
+build.bat KeywordReply.dll
 ```
 
-也可以通过命令行指定 DLL 名称：
-
-```bat
-build.bat MyPlugin.dll
-```
-
-构建成功后，最终插件位于：
+构建成功后，将生成：
 
 ```text
-build\插件名称.dll
+build\KeywordReply.dll
 ```
 
-`build` 目录只保留最终 DLL，临时 EXE、RES、LIB 和 PDB 会自动清理。
+### 2. 加载并打开设置
 
-### 5. 加载插件
+在 Bee 插件管理器中加载 DLL、启用插件，然后点击“设置”。左侧是按优先级排列的规则列表，右侧用于编辑当前规则。
 
-在 Bee 插件管理器中添加 `build` 目录下生成的 DLL。
+### 3. 添加第一条规则
 
-插件运行时，内嵌 Worker 会自动释放到：
+填写以下内容后点击“新增”：
 
 ```text
-Bee框架根目录\plugin_data\插件名称\bee_go_worker.exe
+关键词：菜单
+匹配：精准（大小写敏感）
+区域：QQ 好友、群聊
+类型：普通消息
+内容：请选择功能 [图片=https://example.com/menu.png]
 ```
+
+收到“菜单”时，插件发送文字和图片。普通消息最多允许一个 `[图片=...]` 标记，地址可以是本地路径或网址；空地址或多个标记无法保存。
+
+### 4. 配置媒体回复
+
+语音、视频和文件内容每行填写一个本地路径或网址，例如：
+
+```text
+C:\media\welcome.mp3
+https://example.com/second.mp3
+```
+
+插件忽略空行，并按顺序发送每个非空行；任一项失败后停止本规则的剩余发送。媒体回复只支持 QQ 好友和群聊，选择媒体类型后频道区域会自动取消并禁用。
+
+### 5. 配置位置
+
+规则立即保存到 UTF-8 JSON：
+
+```text
+Bee框架根目录\plugin_data\关键词回复插件\keyword_replies.json
+```
+
+设置窗口关闭或 Bee 重启后规则仍然保留。不建议在插件运行期间手工编辑该文件。
+
+## 规则行为
+
+- 精准匹配：去除收到消息首尾空白后，与关键词完整相等。
+- 模糊匹配：去除首尾空白后，消息任意位置包含关键词。
+- 大小写策略按每条规则独立配置，默认大小写敏感。
+- 规则从列表顶部向下扫描，只发送第一条命中规则。
+- 普通消息和 Markdown 支持全部四个区域。
+- 频道私信没有原生 Markdown 接口，因此自动按普通文字发送并记录降级日志。
+- 语音、视频和文件仅支持 QQ 好友与群聊。
+- 所有消息回调均返回 `MessageContinue`，不会拦截其他插件。
 
 ## 开发插件
 
@@ -290,7 +296,12 @@ Bee框架根目录\plugin_data\插件名称
 ├── README.md                   # 项目说明
 ├── plugin_main.go              # 插件信息、生命周期和业务回调
 ├── bee_sdk.go                  # Bee Go SDK、事件常量和 IPC 客户端
-├── settings.go                 # Windows 原生设置窗口
+├── keyword_config.go           # 规则模型、校验和 JSON 持久化
+├── keyword_match.go            # 顺序匹配引擎
+├── keyword_reply.go            # 回复解析与发送分发
+├── keyword_runtime.go          # 初始化和消息回调接线
+├── settings_model.go           # 可测试的设置控制器
+├── settings.go                 # Windows 原生规则编辑器
 ├── build.bat                   # Windows 一键构建脚本
 ├── go.mod
 ├── go.sum
@@ -306,14 +317,7 @@ Bee框架根目录\plugin_data\插件名称
         └── main.go             # 元数据与构建源码生成器
 ```
 
-插件开发通常只需要修改：
-
-```text
-plugin_main.go
-settings.go（需要自定义设置窗口时）
-```
-
-`other/` 保存底层实现，不建议在普通业务开发中修改。
+`other/` 保存底层桥接实现，不应为关键词规则功能修改其中的 ABI 或 IPC 协议。
 
 ## 架构说明
 
@@ -379,8 +383,9 @@ C 壳等待 `event_result` 时仍会处理嵌套的 `api_call`，避免同步 SD
 交叉编译可以验证 Worker 和 DLL 是否为 Windows PE32，但以下功能必须在真实 Windows/Bee 环境中测试：
 
 - 插件加载、初始化、启用、禁用和卸载；
-- 消息接收与 Bee API 调用；
-- 设置窗口显示、置顶、拖动和关闭；
+- 四个消息区域的关键词匹配与第一规则优先级；
+- 图片、Markdown 降级及多行媒体发送；
+- 设置窗口增删改排、即时持久化、单实例、键盘导航和 DPI；
 - Worker 在 Bee 宿主退出后的自动清理；
 - 插件重复加载和卸载的稳定性。
 
@@ -434,15 +439,18 @@ Go Worker 已作为资源嵌入 DLL。插件首次初始化或运行时，C 壳�
 
 ## 发布检查清单
 
-- [ ] 已修改插件名称、作者、版本和说明
+- [ ] `go test ./...` 与 `go vet ./...` 通过
 - [ ] `build.bat` 构建成功
-- [ ] `build` 目录只包含最终 DLL
+- [ ] `build\KeywordReply.dll` 是 PE32 i386 DLL
 - [ ] 插件可以在 Bee 中初始化和启用
-- [ ] 消息回调及所用 API 已验证
+- [ ] 精准、模糊、大小写和首条规则优先级已验证
+- [ ] 好友、群聊、频道消息、频道私信已验证
+- [ ] 图片、Markdown 降级、语音、视频和文件已验证
+- [ ] 规则增删改排和重启持久化已验证
 - [ ] 禁用后 Worker 正常退出
 - [ ] 卸载后 Bee 不崩溃
-- [ ] 设置窗口可显示、置顶并正常关闭
-- [ ] 插件数据写入专属 `plugin_data` 目录
+- [ ] 设置窗口单实例、键盘操作、DPI 和关闭行为正常
+- [ ] 配置写入 `plugin_data\关键词回复插件\keyword_replies.json`
 
 ---
 
