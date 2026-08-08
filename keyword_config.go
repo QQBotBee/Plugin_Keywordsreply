@@ -47,45 +47,63 @@ type KeywordRule struct {
 func ValidateRules(rules []KeywordRule) error {
 	keywords := make(map[string]struct{}, len(rules))
 	for i, rule := range rules {
+		ruleNumber := i + 1
 		if rule.Keyword == "" {
-			return fmt.Errorf("rule %d: keyword is required", i)
+			return fmt.Errorf("第 %d 条规则：关键词不能为空", ruleNumber)
 		}
 		if _, exists := keywords[rule.Keyword]; exists {
-			return fmt.Errorf("rule %d: duplicate keyword %q", i, rule.Keyword)
+			return fmt.Errorf("第 %d 条规则：关键词“%s”重复", ruleNumber, rule.Keyword)
 		}
 		keywords[rule.Keyword] = struct{}{}
 
 		if rule.MatchMode != MatchExact && rule.MatchMode != MatchFuzzy {
-			return fmt.Errorf("rule %d: invalid match mode %q", i, rule.MatchMode)
+			return fmt.Errorf("第 %d 条规则：匹配模式“%s”无效", ruleNumber, rule.MatchMode)
 		}
 		if len(rule.Areas) == 0 {
-			return fmt.Errorf("rule %d: at least one area is required", i)
+			return fmt.Errorf("第 %d 条规则：至少选择一个触发区域", ruleNumber)
 		}
 		for _, area := range rule.Areas {
 			if !isValidTriggerArea(area) {
-				return fmt.Errorf("rule %d: invalid trigger area %q", i, area)
+				return fmt.Errorf("第 %d 条规则：触发区域“%s”无效", ruleNumber, area)
 			}
 		}
 		if !isValidReplyType(rule.ReplyType) {
-			return fmt.Errorf("rule %d: invalid reply type %q", i, rule.ReplyType)
+			return fmt.Errorf("第 %d 条规则：回复类型“%s”无效", ruleNumber, rule.ReplyType)
 		}
 		if !hasContent(rule.Contents) {
-			return fmt.Errorf("rule %d: reply content is required", i)
+			return fmt.Errorf("第 %d 条规则：回复内容不能为空", ruleNumber)
 		}
 		if rule.ReplyType == ReplyText {
 			if _, err := ParseTextReply(strings.Join(rule.Contents, "\n")); err != nil {
-				return fmt.Errorf("rule %d: invalid text reply: %w", i, err)
+				return fmt.Errorf("第 %d 条规则：普通消息内容无效：%w", ruleNumber, err)
 			}
 		}
 		if isMediaReply(rule.ReplyType) {
 			for _, area := range rule.Areas {
 				if area == AreaChannel || area == AreaChannelPrivate {
-					return fmt.Errorf("rule %d: %s replies cannot use channel areas", i, rule.ReplyType)
+					return fmt.Errorf("第 %d 条规则：%s回复不能用于频道消息或频道私信", ruleNumber, replyTypeChineseName(rule.ReplyType))
 				}
 			}
 		}
 	}
 	return nil
+}
+
+func replyTypeChineseName(replyType ReplyType) string {
+	switch replyType {
+	case ReplyText:
+		return "普通消息"
+	case ReplyMarkdown:
+		return "Markdown"
+	case ReplyAudio:
+		return "语音"
+	case ReplyVideo:
+		return "视频"
+	case ReplyFile:
+		return "文件"
+	default:
+		return string(replyType)
+	}
 }
 
 func isValidTriggerArea(area TriggerArea) bool {
@@ -133,15 +151,15 @@ func (store *RuleStore) Load() error {
 		return nil
 	}
 	if err != nil {
-		return fmt.Errorf("read keyword rules: %w", err)
+		return fmt.Errorf("读取规则配置失败：%w", err)
 	}
 
 	var rules []KeywordRule
 	if err := json.Unmarshal(data, &rules); err != nil {
-		return fmt.Errorf("decode keyword rules: %w", err)
+		return fmt.Errorf("解析规则配置失败：%w", err)
 	}
 	if err := ValidateRules(rules); err != nil {
-		return fmt.Errorf("validate keyword rules: %w", err)
+		return fmt.Errorf("规则配置校验失败：%w", err)
 	}
 	store.rules = cloneRules(rules)
 	return nil
@@ -158,13 +176,13 @@ func (store *RuleStore) Replace(rules []KeywordRule) error {
 
 	data, err := json.MarshalIndent(copiedRules, "", "  ")
 	if err != nil {
-		return fmt.Errorf("encode keyword rules: %w", err)
+		return fmt.Errorf("生成规则配置失败：%w", err)
 	}
 	data = append(data, '\n')
 
 	temporary, err := os.CreateTemp(filepath.Dir(store.path), ".keyword_replies-*.tmp")
 	if err != nil {
-		return fmt.Errorf("create temporary keyword rules file: %w", err)
+		return fmt.Errorf("创建规则配置临时文件失败：%w", err)
 	}
 	temporaryPath := temporary.Name()
 	removeTemporary := true
@@ -176,17 +194,17 @@ func (store *RuleStore) Replace(rules []KeywordRule) error {
 
 	if _, err := temporary.Write(data); err != nil {
 		_ = temporary.Close()
-		return fmt.Errorf("write temporary keyword rules file: %w", err)
+		return fmt.Errorf("写入规则配置临时文件失败：%w", err)
 	}
 	if err := temporary.Sync(); err != nil {
 		_ = temporary.Close()
-		return fmt.Errorf("sync temporary keyword rules file: %w", err)
+		return fmt.Errorf("同步规则配置临时文件失败：%w", err)
 	}
 	if err := temporary.Close(); err != nil {
-		return fmt.Errorf("close temporary keyword rules file: %w", err)
+		return fmt.Errorf("关闭规则配置临时文件失败：%w", err)
 	}
 	if err := store.replaceFile(temporaryPath, store.path); err != nil {
-		return fmt.Errorf("replace keyword rules file: %w", err)
+		return fmt.Errorf("替换规则配置文件失败：%w", err)
 	}
 
 	removeTemporary = false

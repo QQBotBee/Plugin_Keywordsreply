@@ -402,7 +402,7 @@ func createSettingsUI(hwnd uintptr, controller *SettingsController) *settingsUI 
 	addComboItems(reply, []string{"普通消息", "Markdown", "语音", "视频", "文件"})
 	create(0, "STATIC", "回复内容", 0, 350, 188, 90, 22)
 	create(idReplyContent, "EDIT", "", wsTabStop|wsBorder|wsVScroll|esMultiline|esAutoVScroll|esWantReturn, 450, 184, 490, 320)
-	create(idSaveRule, "BUTTON", "保存规则", wsTabStop|bsPushButton, 450, 522, 100, 32)
+	create(idSaveRule, "BUTTON", settingsSaveButtonText, wsTabStop|bsPushButton, 450, 522, 100, 32)
 	create(idStatus, "STATIC", "", 0, 350, 580, 590, 36)
 
 	ui.setDraft(NewRuleDraft())

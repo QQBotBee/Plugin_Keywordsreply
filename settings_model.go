@@ -7,6 +7,8 @@ import (
 	"strings"
 )
 
+const settingsSaveButtonText = "保存"
+
 // RuleDraft is the editable form used by the native settings window.
 type RuleDraft struct {
 	Keyword            string

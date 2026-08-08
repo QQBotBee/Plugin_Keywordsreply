@@ -102,7 +102,7 @@ func TestSettingsControllerRejectsMediaChannel(t *testing.T) {
 	draft.ReplyType = ReplyFile
 	draft.AreaChannel = true
 	draft.Content = "file.zip"
-	if err := controller.Add(draft); err == nil || !strings.Contains(err.Error(), "channel") {
+	if err := controller.Add(draft); err == nil || !strings.Contains(err.Error(), "频道") {
 		t.Fatalf("err=%v", err)
 	}
 	if len(controller.Rules()) != 0 {
@@ -179,5 +179,11 @@ func TestRuleSummary(t *testing.T) {
 	rule := KeywordRule{Keyword: "菜单", MatchMode: MatchFuzzy, Areas: []TriggerArea{AreaFriend, AreaGroup}, ReplyType: ReplyText}
 	if got, want := RuleSummary(rule), "菜单｜模糊｜普通消息｜2 个区域"; got != want {
 		t.Fatalf("got %q want %q", got, want)
+	}
+}
+
+func TestSettingsUserFacingTextUsesSave(t *testing.T) {
+	if settingsSaveButtonText != "保存" {
+		t.Fatalf("save button text = %q", settingsSaveButtonText)
 	}
 }
