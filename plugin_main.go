@@ -86,7 +86,9 @@ func onSettings(args [][]byte) {
 	if err == nil {
 		_ = bee.Log("插件设置被打开")
 	}
-	showSettingsWindow()
+	if err := showSettingsWindow(); err != nil && bee != nil {
+		_ = bee.Log(fmt.Sprintf("插件设置打开失败：%v", err))
+	}
 }
 
 // onChannelPrivate 处理机器人收到的频道私信消息。

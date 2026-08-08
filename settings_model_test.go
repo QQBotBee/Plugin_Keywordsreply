@@ -134,3 +134,10 @@ func TestSettingsControllerMoveAndBoundaries(t *testing.T) {
 		t.Fatalf("invalid delta index=%d err=%v", index, err)
 	}
 }
+
+func TestRuleSummary(t *testing.T) {
+	rule := KeywordRule{Keyword: "菜单", MatchMode: MatchFuzzy, Areas: []TriggerArea{AreaFriend, AreaGroup}, ReplyType: ReplyText}
+	if got, want := RuleSummary(rule), "菜单｜模糊｜普通消息｜2 个区域"; got != want {
+		t.Fatalf("got %q want %q", got, want)
+	}
+}

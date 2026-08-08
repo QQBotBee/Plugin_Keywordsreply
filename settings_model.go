@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"strconv"
+	"strings"
 )
 
 // RuleDraft is the editable form used by the native settings window.
@@ -24,6 +26,24 @@ func NewRuleDraft() RuleDraft {
 		CaseSensitive: true,
 		ReplyType:     ReplyText,
 	}
+}
+
+func RuleSummary(rule KeywordRule) string {
+	matchLabel := "精准"
+	if rule.MatchMode == MatchFuzzy {
+		matchLabel = "模糊"
+	}
+	replyLabel := map[ReplyType]string{
+		ReplyText:     "普通消息",
+		ReplyMarkdown: "Markdown",
+		ReplyAudio:    "语音",
+		ReplyVideo:    "视频",
+		ReplyFile:     "文件",
+	}[rule.ReplyType]
+	if replyLabel == "" {
+		replyLabel = string(rule.ReplyType)
+	}
+	return strings.Join([]string{rule.Keyword, matchLabel, replyLabel, strconv.Itoa(len(rule.Areas)) + " 个区域"}, "｜")
 }
 
 func DraftFromRule(rule KeywordRule) RuleDraft {
