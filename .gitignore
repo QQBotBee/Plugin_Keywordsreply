@@ -11,6 +11,7 @@
 *.pdb
 
 # Local editor files
+.worktrees/
 .vscode/
 .idea/
 *.swp
