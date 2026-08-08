@@ -522,3 +522,43 @@ git commit -m "docs: explain keyword reply configuration"
 Run: `git status --short --branch && git log --oneline --decorate -10`
 
 Expected: clean working tree with separate commits for baseline, design, IPC fix, persistence, matching, replies, runtime, settings controller, native UI, and documentation.
+
+### Task 9: Chinese Settings Copy and Validation Errors
+
+**Files:**
+- Modify: `keyword_config.go`
+- Modify: `keyword_config_test.go`
+- Modify: `settings_model.go`
+- Modify: `settings_model_test.go`
+- Modify: `settings.go`
+
+**Interfaces:**
+- Preserves all rule validation behavior and error wrapping.
+- Produces Chinese user-facing validation/persistence context and the exact save-button text `保存`.
+
+- [ ] **Step 1: Write failing copy and validation tests**
+
+Assert that the shared save-button text is exactly `保存`, missing/duplicate/invalid rule errors use Chinese and 1-based rule numbers, and persistence failures have Chinese context while retaining the wrapped cause.
+
+- [ ] **Step 2: Run tests to verify RED**
+
+Run: `go test ./... -run 'TestSettingsUserFacingText|TestValidateRulesChinese|TestRuleStoreChinese' -v`
+
+Expected: FAIL because the save text is not shared and validation/persistence errors still use English.
+
+- [ ] **Step 3: Implement minimal localization**
+
+Translate all `ValidateRules` and `RuleStore` context strings, use Chinese labels for enum values where exposed, count rules from 1, define the shared save-button copy in `settings_model.go`, and consume it from `settings.go`.
+
+- [ ] **Step 4: Verify and build**
+
+Run: `gofmt -w keyword_config.go keyword_config_test.go settings_model.go settings_model_test.go settings.go && go test ./... && go vet ./... && build.bat KeywordReply.dll`
+
+Expected: PASS with zero test/vet findings and a rebuilt PE32 DLL.
+
+- [ ] **Step 5: Commit**
+
+```powershell
+git add keyword_config.go keyword_config_test.go settings_model.go settings_model_test.go settings.go docs/superpowers/specs/2026-08-08-keyword-reply-plugin-design.md docs/superpowers/plans/2026-08-08-keyword-reply-plugin.md
+git commit -m "fix: localize settings validation messages"
+```

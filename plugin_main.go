@@ -2,13 +2,14 @@ package main
 
 import (
 	"errors"
+	"fmt"
 )
 
 const (
-	PluginName        = "GO测试插件"
+	PluginName        = "关键词回复插件"
 	PluginAuthor      = "周星星"
-	PluginVersion     = "1.0"
-	PluginDescription = "Bee C shell + Go worker template"
+	PluginVersion     = "1.0.0"
+	PluginDescription = "可配置关键词、匹配方式、触发区域和回复类型的自动回复插件"
 )
 
 type PluginMetadata struct {
@@ -44,18 +45,20 @@ func onInitialize(args [][]byte) {
 	if err != nil {
 		return
 	}
+	if err := ensureKeywordRules(bee); err != nil {
+		_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
+	}
 	_ = bee.Log("插件初始化完成")
-	// dataDir, err := bee.GetAppDataDir()
-	// 可在 dataDir 中创建配置、数据库、缓存和日志文件。
 }
 
 // onEnable 在插件被启用时调用，可在这里启动插件任务或初始化运行状态。
 func onEnable(args [][]byte) {
 	bee, err := beeFromArgs(args)
 	if err == nil {
+		if err := ensureKeywordRules(bee); err != nil {
+			_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
+		}
 		_ = bee.Log("插件被启用")
-		// dataDir, err := bee.GetAppDataDir()
-		// 应用配置、数据库、缓存和日志统一写入 dataDir。
 	}
 }
 
@@ -83,8 +86,13 @@ func onSettings(args [][]byte) {
 	bee, err := beeFromArgs(args)
 	if err == nil {
 		_ = bee.Log("插件设置被打开")
+		if err := ensureKeywordRules(bee); err != nil {
+			_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
+		}
 	}
-	showSettingsWindow()
+	if err := showSettingsWindow(); err != nil && bee != nil {
+		_ = bee.Log(fmt.Sprintf("插件设置打开失败：%v", err))
+	}
 }
 
 // onChannelPrivate 处理机器人收到的频道私信消息。
@@ -104,12 +112,8 @@ func onChannelPrivate(
 	}
 
 	_ = bee.Log("收到频道私信消息")
-
-	// 示例：向当前频道私信会话发送消息。
-	// _, _ = bee.ChannelDM(channelID).SendText("你好哦")
-	//
-	// 这些具名参数可直接用于业务判断、回复、引用或撤回操作。
-	_, _, _, _, _ = channelID, subChannelID, userID, message, messageID
+	handleKeywordMessage(bee, AreaChannelPrivate, channelID, message)
+	_, _, _ = subChannelID, userID, messageID
 
 	return MessageContinue
 }
@@ -131,12 +135,8 @@ func onChannelMessage(
 	}
 
 	_ = bee.Log("收到频道消息")
-
-	// 示例：向消息来源子频道发送消息。
-	// _, _ = bee.Channel(subChannelID).SendText("你好哦")
-	//
-	// 这些具名参数可直接用于业务判断、回复、引用或撤回操作。
-	_, _, _, _, _ = channelID, subChannelID, userID, message, messageID
+	handleKeywordMessage(bee, AreaChannel, subChannelID, message)
+	_, _, _ = channelID, userID, messageID
 
 	return MessageContinue
 }
@@ -253,12 +253,8 @@ func onPrivateMessage(
 	}
 
 	_ = bee.Log("收到好友私聊消息")
-
-	// 示例：向当前好友发送消息。
-	// _, _ = bee.Friend(friendID).SendText("你好哦")
-	//
-	// 这些具名参数可直接用于业务判断、回复、引用或撤回操作。
-	_, _, _ = friendID, message, messageID
+	handleKeywordMessage(bee, AreaFriend, friendID, message)
+	_ = messageID
 
 	return MessageContinue
 }
@@ -279,12 +275,8 @@ func onGroupMessage(
 	}
 
 	_ = bee.Log("收到群消息")
-
-	// 示例：向消息来源群聊发送消息。
-	// _, _ = bee.Group(groupID).SendText("大家好")
-	//
-	// 这些具名参数可直接用于业务判断、回复、引用或撤回操作。
-	_, _, _, _ = groupID, userID, message, messageID
+	handleKeywordMessage(bee, AreaGroup, groupID, message)
+	_, _ = userID, messageID
 
 	return MessageContinue
 }

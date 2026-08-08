@@ -1033,6 +1033,58 @@ func (target *MessageTarget) SendImage(content, image string) (string, error) {
 	}
 }
 
+// SendMarkdown sends native Markdown. Channel private messages fall back to text.
+func (target *MessageTarget) SendMarkdown(content string) (string, error) {
+	if target.kind == targetChannelDM {
+		return target.SendText(content)
+	}
+	message := MarkdownMessage{Native: content}
+	switch target.kind {
+	case targetFriend:
+		return target.ctx.SendFriendMarkdown(target.targetID, message, false, false)
+	case targetGroup:
+		return target.ctx.SendGroupMarkdown(target.targetID, message, false)
+	default:
+		return target.ctx.SendChannelMarkdown(target.targetID, message, false)
+	}
+}
+
+// SendAudio sends an audio file to a friend or group target.
+func (target *MessageTarget) SendAudio(file string) (string, error) {
+	switch target.kind {
+	case targetFriend:
+		return target.ctx.SendFriendAudio(target.targetID, file, false, false, false)
+	case targetGroup:
+		return target.ctx.SendGroupAudio(target.targetID, file, false, false)
+	default:
+		return "", errors.New("频道目标不支持发送语音")
+	}
+}
+
+// SendVideo sends a video file to a friend or group target.
+func (target *MessageTarget) SendVideo(file string) (string, error) {
+	switch target.kind {
+	case targetFriend:
+		return target.ctx.SendFriendVideo(target.targetID, file, false, false, false)
+	case targetGroup:
+		return target.ctx.SendGroupVideo(target.targetID, file, false, false)
+	default:
+		return "", errors.New("频道目标不支持发送视频")
+	}
+}
+
+// SendFile sends a file to a friend or group target.
+func (target *MessageTarget) SendFile(file string) (string, error) {
+	switch target.kind {
+	case targetFriend:
+		return target.ctx.SendFriendFile(target.targetID, file, false, false, false)
+	case targetGroup:
+		return target.ctx.SendGroupFile(target.targetID, file, false, false)
+	default:
+		return "", errors.New("频道目标不支持发送文件")
+	}
+}
+
 // SendActiveText 主动发送纯文本消息；主动消息受平台频率和次数限制。
 func (target *MessageTarget) SendActiveText(content string) (string, error) {
 	switch target.kind {
