@@ -48,7 +48,6 @@ func onInitialize(args [][]byte) {
 	if err := ensureKeywordRules(bee); err != nil {
 		_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
 	}
-	_ = bee.Log("插件初始化完成")
 }
 
 // onEnable 在插件被启用时调用，可在这里启动插件任务或初始化运行状态。
@@ -58,15 +57,14 @@ func onEnable(args [][]byte) {
 		if err := ensureKeywordRules(bee); err != nil {
 			_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
 		}
-		_ = bee.Log("插件被启用")
 	}
 }
 
 // onDisable 在插件被禁用时调用，负责停止任务并关闭设置窗口等运行资源。
 func onDisable(args [][]byte) {
-	bee, err := beeFromArgs(args)
-	if err == nil {
-		_ = bee.Log("插件被禁用")
+	bee, _ := beeFromArgs(args)
+	if err := stopSettingsWebService(); err != nil && bee != nil {
+		_ = bee.Log(fmt.Sprintf("HTTP 设置服务关闭失败：%v", err))
 	}
 	closeSettingsWindow()
 }
@@ -75,9 +73,9 @@ func onDisable(args [][]byte) {
 // robotJSON 是卸载回调传入的机器人上下文，可用于输出日志等框架级操作。
 // Bee 只允许禁用后卸载，设置窗口已在 onDisable 中关闭，这里不重复处理窗口。
 func onUnload(args [][]byte) {
-	bee, err := beeFromArgs(args)
-	if err == nil {
-		_ = bee.Log("插件被卸载")
+	bee, _ := beeFromArgs(args)
+	if err := stopSettingsWebService(); err != nil && bee != nil {
+		_ = bee.Log(fmt.Sprintf("HTTP 设置服务关闭失败：%v", err))
 	}
 }
 
@@ -85,7 +83,6 @@ func onUnload(args [][]byte) {
 func onSettings(args [][]byte) {
 	bee, err := beeFromArgs(args)
 	if err == nil {
-		_ = bee.Log("插件设置被打开")
 		if err := ensureKeywordRules(bee); err != nil {
 			_ = bee.Log(fmt.Sprintf("关键词回复配置加载失败：%v", err))
 		}
@@ -111,7 +108,6 @@ func onChannelPrivate(
 		return MessageContinue
 	}
 
-	_ = bee.Log("收到频道私信消息")
 	handleKeywordMessage(bee, AreaChannelPrivate, channelID, message)
 	_, _, _ = subChannelID, userID, messageID
 
@@ -134,7 +130,6 @@ func onChannelMessage(
 		return MessageContinue
 	}
 
-	_ = bee.Log("收到频道消息")
 	handleKeywordMessage(bee, AreaChannel, subChannelID, message)
 	_, _, _ = channelID, userID, messageID
 
@@ -153,12 +148,9 @@ func onChannelEvent(
 	eventType string, // 事件类型，对应 bee_sdk.go 中的频道 EventType 常量
 	rawMessage string, // 事件原始内容，保留 Bee 框架传入的完整事件数据
 ) int {
-	bee, err := NewBeeAPI(robotJSON)
-	if err != nil {
+	if _, err := NewBeeAPI(robotJSON); err != nil {
 		return MessageContinue
 	}
-
-	_ = bee.Log("收到频道事件")
 
 	switch EventType(eventType) {
 	case EventGuildMemberRemove:
@@ -252,7 +244,6 @@ func onPrivateMessage(
 		return MessageContinue
 	}
 
-	_ = bee.Log("收到好友私聊消息")
 	handleKeywordMessage(bee, AreaFriend, friendID, message)
 	_ = messageID
 
@@ -274,7 +265,6 @@ func onGroupMessage(
 		return MessageContinue
 	}
 
-	_ = bee.Log("收到群消息")
 	handleKeywordMessage(bee, AreaGroup, groupID, message)
 	_, _ = userID, messageID
 
@@ -292,12 +282,9 @@ func onCommonEvent(
 	eventType string, // 事件类型，对应 bee_sdk.go 中的 EventType 常量
 	rawMessage string, // 事件原始内容，保留 Bee 框架传入的完整事件数据
 ) int {
-	bee, err := NewBeeAPI(robotJSON)
-	if err != nil {
+	if _, err := NewBeeAPI(robotJSON); err != nil {
 		return MessageContinue
 	}
-
-	_ = bee.Log("收到通用事件")
 
 	switch EventType(eventType) {
 	case EventInteractionCreate:

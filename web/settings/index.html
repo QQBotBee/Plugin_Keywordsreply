@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>关键词回复设置</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <section class="toolbar" aria-label="规则操作">
+      <div>
+        <h1>关键词回复设置</h1>
+        <p id="service-state">本地设置服务已连接</p>
+      </div>
+      <div class="toolbar-actions">
+        <button id="new-rule" type="button">新增</button>
+        <button id="save-rule" type="button" class="primary">保存全部</button>
+      </div>
+    </section>
+
+    <section class="layout">
+      <aside class="rules-panel" aria-label="规则列表">
+        <div id="rule-list" class="rule-list" role="listbox" tabindex="0"></div>
+      </aside>
+
+      <form id="rule-form" class="editor" autocomplete="off">
+        <label>
+          <span>关键词</span>
+          <input id="keyword" name="keyword" type="text" required>
+        </label>
+
+        <div class="grid">
+          <label>
+            <span>匹配模式</span>
+            <select id="match-mode" name="match_mode">
+              <option value="exact">精准</option>
+              <option value="fuzzy">模糊</option>
+            </select>
+          </label>
+          <label class="check">
+            <input id="case-sensitive" name="case_sensitive" type="checkbox">
+            <span>大小写敏感</span>
+          </label>
+        </div>
+
+        <fieldset>
+          <legend>触发区域</legend>
+          <label class="check"><input name="areas" type="checkbox" value="friend"> QQ 好友</label>
+          <label class="check"><input name="areas" type="checkbox" value="group"> 群聊</label>
+          <label class="check"><input name="areas" type="checkbox" value="channel"> 频道消息</label>
+          <label class="check"><input name="areas" type="checkbox" value="channel_private"> 频道私信</label>
+        </fieldset>
+
+        <label>
+          <span>回复类型</span>
+          <select id="reply-type" name="reply_type">
+            <option value="text">普通消息</option>
+            <option value="markdown">Markdown</option>
+            <option value="audio">语音</option>
+            <option value="video">视频</option>
+            <option value="file">文件</option>
+          </select>
+        </label>
+
+        <label>
+          <span>回复内容</span>
+          <textarea id="contents" name="contents" rows="10" required></textarea>
+        </label>
+
+        <div class="editor-actions">
+          <button id="delete-rule" type="button" class="danger">删除</button>
+          <button id="move-up" type="button">上移</button>
+          <button id="move-down" type="button">下移</button>
+        </div>
+      </form>
+    </section>
+
+    <p id="status" class="status" role="status"></p>
+  </main>
+  <script src="/app.js"></script>
+</body>
+</html>

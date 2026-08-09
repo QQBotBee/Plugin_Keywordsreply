@@ -6,14 +6,15 @@ import (
 	"errors"
 	"os"
 	"runtime"
+	"strconv"
 	"sync"
 	"syscall"
 	"unsafe"
 )
 
 const (
-	settingsBaseWidth   = 980
-	settingsBaseHeight  = 640
+	settingsBaseWidth   = 520
+	settingsBaseHeight  = 260
 	settingsBasePadding = 20
 )
 
@@ -55,22 +56,12 @@ func centeredPosition(screenWidth, screenHeight, windowWidth, windowHeight int) 
 }
 
 const (
-	idRuleList = 1001 + iota
-	idKeyword
-	idMatchMode
-	idCaseSensitive
-	idAreaFriend
-	idAreaGroup
-	idAreaChannel
-	idAreaChannelPrivate
-	idReplyType
-	idReplyContent
-	idAddRule
-	idSaveRule
-	idDeleteRule
-	idMoveUp
-	idMoveDown
-	idStatus
+	idSettingsPort = 1001 + iota
+	idCheckPort
+	idEnableService
+	idDisableService
+	idOpenSettingsPage
+	idServiceStatus
 )
 
 const (
@@ -80,6 +71,9 @@ const (
 	wmClose             = 0x0010
 	wmSetFont           = 0x0030
 	wmCommand           = 0x0111
+	wmCtlColorEdit      = 0x0133
+	wmCtlColorBtn       = 0x0135
+	wmCtlColorStatic    = 0x0138
 	swShow              = 5
 	swRestore           = 9
 	wsExTopmost         = 0x00000008
@@ -127,6 +121,9 @@ const (
 	bnClicked           = 0
 	lbnSelChange        = 1
 	cbnSelChange        = 1
+	whiteBrush          = 0
+	settingsWhiteColor  = 0x00ffffff
+	settingsBlackColor  = 0x00000000
 )
 
 var hwndTopmost = ^uintptr(0)
@@ -158,6 +155,8 @@ var (
 	procGetDC               = user32.NewProc("GetDC")
 	procReleaseDC           = user32.NewProc("ReleaseDC")
 	procGetDeviceCaps       = gdi32.NewProc("GetDeviceCaps")
+	procSetBkColor          = gdi32.NewProc("SetBkColor")
+	procSetTextColor        = gdi32.NewProc("SetTextColor")
 	procGetModuleHandleW    = kernel32.NewProc("GetModuleHandleW")
 	procSendMessageW        = user32.NewProc("SendMessageW")
 	procSetWindowTextW      = user32.NewProc("SetWindowTextW")
@@ -189,18 +188,15 @@ type wndClassEx struct {
 }
 
 type settingsUI struct {
-	controller *SettingsController
-	controls   map[int]uintptr
-	selected   int
+	controls map[int]uintptr
 }
 
 var settingsNative = struct {
 	sync.Mutex
-	hwnd       uintptr
-	done       chan struct{}
-	closing    bool
-	controller *SettingsController
-	ui         *settingsUI
+	hwnd    uintptr
+	done    chan struct{}
+	closing bool
+	ui      *settingsUI
 }{}
 
 var settingsWndProc = syscall.NewCallback(settingsWindowProc)
@@ -230,7 +226,6 @@ func showSettingsWindow() error {
 		return nil
 	}
 	settingsNative.done = make(chan struct{})
-	settingsNative.controller = NewSettingsController(store)
 	done := settingsNative.done
 	settingsNative.Unlock()
 	go settingsWindowThread(done)
@@ -260,7 +255,6 @@ func settingsWindowThread(done chan struct{}) {
 		settingsNative.hwnd = 0
 		settingsNative.done = nil
 		settingsNative.closing = false
-		settingsNative.controller = nil
 		settingsNative.ui = nil
 		close(done)
 		settingsNative.Unlock()
@@ -268,10 +262,10 @@ func settingsWindowThread(done chan struct{}) {
 
 	instance, _, _ := procGetModuleHandleW.Call(0)
 	className := utf16Ptr("BeeKeywordReplySettingsWindow")
-	title := utf16Ptr(PluginName + " 设置")
+	title := utf16Ptr(PluginName + " 设置服务")
 	cursor, _, _ := procLoadCursorW.Call(0, idcArrow)
 	icon, _, _ := procLoadIconW.Call(0, idiApplication)
-	class := wndClassEx{Size: uint32(unsafe.Sizeof(wndClassEx{})), WndProc: settingsWndProc, Instance: instance, Icon: icon, Cursor: cursor, Background: colorWindow + 1, ClassName: uintptr(unsafe.Pointer(className)), IconSmall: icon}
+	class := wndClassEx{Size: uint32(unsafe.Sizeof(wndClassEx{})), WndProc: settingsWndProc, Instance: instance, Icon: icon, Cursor: cursor, Background: settingsWhiteBrush(), ClassName: uintptr(unsafe.Pointer(className)), IconSmall: icon}
 	atom, _, _ := procRegisterClassExW.Call(uintptr(unsafe.Pointer(&class)))
 	if atom == 0 {
 		return
@@ -333,10 +327,7 @@ func settingsDPI() int {
 func settingsWindowProc(hwnd uintptr, message uint32, wparam, lparam uintptr) uintptr {
 	switch message {
 	case wmCreate:
-		settingsNative.Lock()
-		controller := settingsNative.controller
-		settingsNative.Unlock()
-		ui := createSettingsUI(hwnd, controller)
+		ui := createSettingsUI(hwnd)
 		settingsNative.Lock()
 		settingsNative.ui = ui
 		settingsNative.Unlock()
@@ -355,15 +346,17 @@ func settingsWindowProc(hwnd uintptr, message uint32, wparam, lparam uintptr) ui
 	case wmDestroy:
 		procPostQuitMessage.Call(0)
 		return 0
+	case wmCtlColorEdit, wmCtlColorBtn, wmCtlColorStatic:
+		return paintSettingsControlWhite(wparam)
 	}
 	result, _, _ := procDefWindowProcW.Call(hwnd, uintptr(message), wparam, lparam)
 	return result
 }
 
-func createSettingsUI(hwnd uintptr, controller *SettingsController) *settingsUI {
+func createSettingsUI(hwnd uintptr) *settingsUI {
 	dpi := settingsDPI()
 	s := func(value int) int { return scaleDPI(value, dpi) }
-	ui := &settingsUI{controller: controller, controls: make(map[int]uintptr), selected: -1}
+	ui := &settingsUI{controls: make(map[int]uintptr)}
 	font, _, _ := procGetStockObject.Call(defaultGUIFont)
 
 	create := func(id int, className, text string, style uintptr, x, y, width, height int) uintptr {
@@ -377,205 +370,124 @@ func createSettingsUI(hwnd uintptr, controller *SettingsController) *settingsUI 
 		return control
 	}
 
-	create(0, "STATIC", "规则列表", 0, 20, 16, 300, 22)
-	create(idRuleList, "LISTBOX", "", wsTabStop|wsBorder|wsVScroll|lbsNotify|lbsNoIntegralHeight, 20, 42, 300, 500)
-	create(idAddRule, "BUTTON", "新增", wsTabStop|bsPushButton, 20, 552, 55, 30)
-	create(idDeleteRule, "BUTTON", "删除", wsTabStop|bsPushButton, 82, 552, 55, 30)
-	create(idMoveUp, "BUTTON", "上移", wsTabStop|bsPushButton, 144, 552, 55, 30)
-	create(idMoveDown, "BUTTON", "下移", wsTabStop|bsPushButton, 206, 552, 55, 30)
+	create(0, "STATIC", "本地 HTTP 设置服务", 0, 20, 18, 460, 24)
+	create(0, "STATIC", "服务不会自动启动。只有点击“启用服务”后才会监听 127.0.0.1 并打开浏览器。", 0, 20, 48, 470, 36)
+	create(0, "STATIC", "端口", 0, 20, 98, 60, 24)
+	create(idSettingsPort, "EDIT", "6655", wsTabStop|wsBorder|esAutoHScroll, 82, 94, 120, 28)
+	create(idCheckPort, "BUTTON", "检测端口", wsTabStop|bsPushButton, 216, 92, 92, 32)
+	create(idEnableService, "BUTTON", "启用服务", wsTabStop|bsPushButton, 20, 142, 92, 34)
+	create(idDisableService, "BUTTON", "停用服务", wsTabStop|bsPushButton, 124, 142, 92, 34)
+	create(idOpenSettingsPage, "BUTTON", "打开网页", wsTabStop|bsPushButton, 228, 142, 92, 34)
+	create(idServiceStatus, "STATIC", "", 0, 20, 194, 470, 42)
 
-	create(0, "STATIC", "关键词", 0, 350, 20, 90, 22)
-	create(idKeyword, "EDIT", "", wsTabStop|wsBorder|esAutoHScroll, 450, 16, 490, 28)
-	create(0, "STATIC", "匹配模式", 0, 350, 62, 90, 22)
-	match := create(idMatchMode, "COMBOBOX", "", wsTabStop|wsVScroll|cbsDropdownList, 450, 58, 180, 200)
-	addComboItems(match, []string{"精准", "模糊"})
-	create(idCaseSensitive, "BUTTON", "大小写敏感", wsTabStop|bsAutoCheckbox, 660, 60, 150, 24)
-
-	create(0, "STATIC", "触发区域", 0, 350, 104, 90, 22)
-	create(idAreaFriend, "BUTTON", "QQ 好友", wsTabStop|bsAutoCheckbox, 450, 100, 110, 24)
-	create(idAreaGroup, "BUTTON", "群聊", wsTabStop|bsAutoCheckbox, 570, 100, 90, 24)
-	create(idAreaChannel, "BUTTON", "频道消息", wsTabStop|bsAutoCheckbox, 670, 100, 110, 24)
-	create(idAreaChannelPrivate, "BUTTON", "频道私信", wsTabStop|bsAutoCheckbox, 790, 100, 110, 24)
-
-	create(0, "STATIC", "回复类型", 0, 350, 146, 90, 22)
-	reply := create(idReplyType, "COMBOBOX", "", wsTabStop|wsVScroll|cbsDropdownList, 450, 142, 180, 250)
-	addComboItems(reply, []string{"普通消息", "Markdown", "语音", "视频", "文件"})
-	create(0, "STATIC", "回复内容", 0, 350, 188, 90, 22)
-	create(idReplyContent, "EDIT", "", wsTabStop|wsBorder|wsVScroll|esMultiline|esAutoVScroll|esWantReturn, 450, 184, 490, 320)
-	create(idSaveRule, "BUTTON", settingsSaveButtonText, wsTabStop|bsPushButton, 450, 522, 100, 32)
-	create(idStatus, "STATIC", "", 0, 350, 580, 590, 36)
-
-	ui.setDraft(NewRuleDraft())
-	ui.refreshList(-1)
+	ui.refreshStatus()
 	return ui
 }
 
 func (ui *settingsUI) handleCommand(id, notification int) {
-	switch {
-	case id == idRuleList && notification == lbnSelChange:
-		index := ui.currentListSelection()
-		rules := ui.controller.Rules()
-		if index >= 0 && index < len(rules) {
-			ui.selected = index
-			ui.setDraft(DraftFromRule(rules[index]))
-			ui.setStatus("")
-		}
-	case id == idReplyType && notification == cbnSelChange:
-		ui.updateMediaAreaState()
-	case id == idAddRule && notification == bnClicked:
-		if err := ui.controller.Add(ui.draft()); err != nil {
-			ui.setStatus(err.Error())
-			return
-		}
-		ui.refreshList(len(ui.controller.Rules()) - 1)
-		ui.setStatus("规则已新增并保存")
-	case id == idSaveRule && notification == bnClicked:
-		if ui.selected < 0 {
-			ui.setStatus("请先选择规则，或使用新增按钮")
-			return
-		}
-		if err := ui.controller.Update(ui.selected, ui.draft()); err != nil {
-			ui.setStatus(err.Error())
-			return
-		}
-		ui.refreshList(ui.selected)
-		ui.setStatus("规则已保存")
-	case id == idDeleteRule && notification == bnClicked:
-		if ui.selected < 0 {
-			ui.setStatus("请先选择要删除的规则")
-			return
-		}
-		index := ui.selected
-		if err := ui.controller.Delete(index); err != nil {
-			ui.setStatus(err.Error())
-			return
-		}
-		if index >= len(ui.controller.Rules()) {
-			index--
-		}
-		ui.refreshList(index)
-		if index < 0 {
-			ui.setDraft(NewRuleDraft())
-		}
-		ui.setStatus("规则已删除")
-	case (id == idMoveUp || id == idMoveDown) && notification == bnClicked:
-		if ui.selected < 0 {
-			ui.setStatus("请先选择要移动的规则")
-			return
-		}
-		delta := 1
-		if id == idMoveUp {
-			delta = -1
-		}
-		index, err := ui.controller.Move(ui.selected, delta)
-		if err != nil {
-			ui.setStatus(err.Error())
-			return
-		}
-		ui.refreshList(index)
-		ui.setStatus("规则顺序已保存")
+	if notification != bnClicked {
+		return
+	}
+	switch id {
+	case idCheckPort:
+		ui.checkPort()
+	case idEnableService:
+		ui.enableService()
+	case idDisableService:
+		ui.disableService()
+	case idOpenSettingsPage:
+		ui.openSettingsPage()
 	}
 }
 
-func (ui *settingsUI) refreshList(selected int) {
-	list := ui.controls[idRuleList]
-	procSendMessageW.Call(list, lbResetContent, 0, 0)
-	rules := ui.controller.Rules()
-	for _, rule := range rules {
-		value := utf16Ptr(RuleSummary(rule))
-		procSendMessageW.Call(list, lbAddString, 0, uintptr(unsafe.Pointer(value)))
-	}
-	if selected >= 0 && selected < len(rules) {
-		procSendMessageW.Call(list, lbSetCurSel, uintptr(selected), 0)
-		ui.selected = selected
-		ui.setDraft(DraftFromRule(rules[selected]))
-	} else {
-		ui.selected = -1
-	}
+func (ui *settingsUI) selectedPort() (int, error) {
+	return parseSettingsPort(controlText(ui.controls[idSettingsPort]))
 }
 
-func (ui *settingsUI) currentListSelection() int {
-	result, _, _ := procSendMessageW.Call(ui.controls[idRuleList], lbGetCurSel, 0, 0)
-	return int(int32(result))
-}
-
-func (ui *settingsUI) draft() RuleDraft {
-	return RuleDraft{
-		Keyword:            controlText(ui.controls[idKeyword]),
-		MatchMode:          []MatchMode{MatchExact, MatchFuzzy}[safeComboIndex(ui.controls[idMatchMode], 2)],
-		CaseSensitive:      controlChecked(ui.controls[idCaseSensitive]),
-		AreaFriend:         controlChecked(ui.controls[idAreaFriend]),
-		AreaGroup:          controlChecked(ui.controls[idAreaGroup]),
-		AreaChannel:        controlChecked(ui.controls[idAreaChannel]),
-		AreaChannelPrivate: controlChecked(ui.controls[idAreaChannelPrivate]),
-		ReplyType:          []ReplyType{ReplyText, ReplyMarkdown, ReplyAudio, ReplyVideo, ReplyFile}[safeComboIndex(ui.controls[idReplyType], 5)],
-		Content:            controlText(ui.controls[idReplyContent]),
+func (ui *settingsUI) checkPort() {
+	port, err := ui.selectedPort()
+	if err != nil {
+		ui.setStatus(err.Error())
+		return
 	}
-}
-
-func (ui *settingsUI) setDraft(draft RuleDraft) {
-	setControlText(ui.controls[idKeyword], draft.Keyword)
-	matchIndex := 0
-	if draft.MatchMode == MatchFuzzy {
-		matchIndex = 1
+	status := settingsWebServiceStatus()
+	if status.Running && status.Port == port {
+		ui.setStatus("HTTP 服务正在使用该端口")
+		return
 	}
-	procSendMessageW.Call(ui.controls[idMatchMode], cbSetCurSel, uintptr(matchIndex), 0)
-	setControlChecked(ui.controls[idCaseSensitive], draft.CaseSensitive)
-	setControlChecked(ui.controls[idAreaFriend], draft.AreaFriend)
-	setControlChecked(ui.controls[idAreaGroup], draft.AreaGroup)
-	setControlChecked(ui.controls[idAreaChannel], draft.AreaChannel)
-	setControlChecked(ui.controls[idAreaChannelPrivate], draft.AreaChannelPrivate)
-	replyIndex := map[ReplyType]int{ReplyText: 0, ReplyMarkdown: 1, ReplyAudio: 2, ReplyVideo: 3, ReplyFile: 4}[draft.ReplyType]
-	procSendMessageW.Call(ui.controls[idReplyType], cbSetCurSel, uintptr(replyIndex), 0)
-	setControlText(ui.controls[idReplyContent], draft.Content)
-	ui.updateMediaAreaState()
+	if err := checkSettingsPortAvailable(port); err != nil {
+		ui.setStatus(err.Error())
+		return
+	}
+	ui.setStatus("端口可用")
+	ui.refreshStatus()
 }
 
-func (ui *settingsUI) updateMediaAreaState() {
-	media := safeComboIndex(ui.controls[idReplyType], 5) >= 2
-	for _, id := range []int{idAreaChannel, idAreaChannelPrivate} {
-		if media {
-			setControlChecked(ui.controls[id], false)
+func (ui *settingsUI) enableService() {
+	port, err := ui.selectedPort()
+	if err != nil {
+		ui.setStatus(err.Error())
+		return
+	}
+	rawURL, err := startSettingsWebService(port)
+	if err != nil {
+		ui.refreshStatus()
+		ui.setStatus(err.Error())
+		return
+	}
+	ui.refreshStatus()
+	ui.setStatus("HTTP 服务已启动：" + rawURL)
+}
+
+func (ui *settingsUI) disableService() {
+	if err := stopSettingsWebService(); err != nil {
+		ui.setStatus("停用服务失败：" + err.Error())
+		return
+	}
+	ui.refreshStatus()
+	ui.setStatus("HTTP 服务已停用")
+}
+
+func (ui *settingsUI) openSettingsPage() {
+	status := settingsWebServiceStatus()
+	if !status.Running || status.URL == "" {
+		ui.setStatus("HTTP 服务未运行")
+		return
+	}
+	if err := openDefaultBrowser(status.URL); err != nil {
+		ui.setStatus("打开浏览器失败：" + err.Error())
+		return
+	}
+	ui.setStatus("已打开设置网页")
+}
+
+func (ui *settingsUI) refreshStatus() {
+	status := settingsWebServiceStatus()
+	if status.Running {
+		setControlText(ui.controls[idSettingsPort], strconv.Itoa(status.Port))
+		ui.setStatus("HTTP 服务运行中：" + status.URL)
+		enableControl(ui.controls[idSettingsPort], false)
+		enableControl(ui.controls[idCheckPort], false)
+		enableControl(ui.controls[idEnableService], false)
+		enableControl(ui.controls[idDisableService], true)
+		enableControl(ui.controls[idOpenSettingsPage], true)
+		if controlText(ui.controls[idServiceStatus]) == "" {
+			ui.setStatus("HTTP 服务运行中：" + status.URL)
 		}
-		enabled := uintptr(1)
-		if media {
-			enabled = 0
-		}
-		procEnableWindow.Call(ui.controls[id], enabled)
+		return
+	}
+	enableControl(ui.controls[idSettingsPort], true)
+	enableControl(ui.controls[idCheckPort], true)
+	enableControl(ui.controls[idEnableService], true)
+	enableControl(ui.controls[idDisableService], false)
+	enableControl(ui.controls[idOpenSettingsPage], false)
+	if controlText(ui.controls[idServiceStatus]) == "" {
+		ui.setStatus("HTTP 服务未运行。默认端口为 6655。")
 	}
 }
 
 func (ui *settingsUI) setStatus(text string) {
-	setControlText(ui.controls[idStatus], text)
-}
-
-func addComboItems(control uintptr, items []string) {
-	for _, item := range items {
-		value := utf16Ptr(item)
-		procSendMessageW.Call(control, cbAddString, 0, uintptr(unsafe.Pointer(value)))
-	}
-}
-
-func safeComboIndex(control uintptr, count int) int {
-	result, _, _ := procSendMessageW.Call(control, cbGetCurSel, 0, 0)
-	index := int(int32(result))
-	if index < 0 || index >= count {
-		return 0
-	}
-	return index
-}
-
-func controlChecked(control uintptr) bool {
-	result, _, _ := procSendMessageW.Call(control, bmGetCheck, 0, 0)
-	return result == bstChecked
-}
-
-func setControlChecked(control uintptr, checked bool) {
-	value := uintptr(bstUnchecked)
-	if checked {
-		value = bstChecked
-	}
-	procSendMessageW.Call(control, bmSetCheck, value, 0)
+	setControlText(ui.controls[idServiceStatus], text)
 }
 
 func controlText(control uintptr) string {
@@ -587,6 +499,25 @@ func controlText(control uintptr) string {
 
 func setControlText(control uintptr, text string) {
 	procSetWindowTextW.Call(control, uintptr(unsafe.Pointer(utf16Ptr(text))))
+}
+
+func paintSettingsControlWhite(dc uintptr) uintptr {
+	procSetTextColor.Call(dc, settingsBlackColor)
+	procSetBkColor.Call(dc, settingsWhiteColor)
+	return settingsWhiteBrush()
+}
+
+func settingsWhiteBrush() uintptr {
+	brush, _, _ := procGetStockObject.Call(whiteBrush)
+	return brush
+}
+
+func enableControl(control uintptr, enabled bool) {
+	value := uintptr(0)
+	if enabled {
+		value = 1
+	}
+	procEnableWindow.Call(control, value)
 }
 
 func utf16Ptr(value string) *uint16 {
