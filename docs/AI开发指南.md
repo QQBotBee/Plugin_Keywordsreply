@@ -44,7 +44,7 @@ bee_go_worker.exe
 配置文件固定为：
 
 ```text
-plugin_data\关键词回复插件\keyword_replies.json
+plugin_data\关键词回复\keyword_replies.json
 ```
 
 保存必须通过 `RuleStore.Replace`，不要从窗口代码直接写文件。控制器只有在原子替换成功后才能更新内存规则。

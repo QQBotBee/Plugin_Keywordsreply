@@ -1,6 +1,6 @@
 <div align="center">
 
-# Bee 关键词回复插件
+# Bee 关键词回复
 
 **为 Bee 机器人框架提供可视化配置的关键词自动回复**
 
@@ -20,7 +20,7 @@
 
 ## 项目简介
 
-Bee 关键词回复插件允许管理员在原生 Windows 设置窗口中维护自动回复规则，无需修改源码。规则支持精准或模糊匹配、大小写策略、四种触发区域和五种回复类型，并按列表顺序只执行第一条命中规则。
+Bee 关键词回复允许管理员在原生 Windows 设置窗口中维护自动回复规则，无需修改源码。规则支持精准或模糊匹配、大小写策略、四种触发区域和五种回复类型，并按列表顺序只执行第一条命中规则。
 
 插件沿用“**纯 C Bee 壳 DLL + 独立 Go Worker**”架构：Bee 进程只加载纯 C DLL，Go 业务运行在独立进程中，避免 Go Runtime 随 DLL 被 `FreeLibrary()` 卸载时影响宿主稳定性。
 
@@ -129,7 +129,7 @@ https://example.com/second.mp3
 规则立即保存到 UTF-8 JSON：
 
 ```text
-Bee框架根目录\plugin_data\关键词回复插件\keyword_replies.json
+Bee框架根目录\plugin_data\关键词回复\keyword_replies.json
 ```
 
 设置窗口关闭或 Bee 重启后规则仍然保留。不建议在插件运行期间手工编辑该文件。
@@ -450,7 +450,7 @@ Go Worker 已作为资源嵌入 DLL。插件首次初始化或运行时，C 壳�
 - [ ] 禁用后 Worker 正常退出
 - [ ] 卸载后 Bee 不崩溃
 - [ ] 设置窗口单实例、键盘操作、DPI 和关闭行为正常
-- [ ] 配置写入 `plugin_data\关键词回复插件\keyword_replies.json`
+- [ ] 配置写入 `plugin_data\关键词回复\keyword_replies.json`
 
 ---
 

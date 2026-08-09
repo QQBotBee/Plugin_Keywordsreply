@@ -6,9 +6,9 @@ import (
 )
 
 const (
-	PluginName        = "关键词回复插件"
+	PluginName        = "关键词回复"
 	PluginAuthor      = "周星星"
-	PluginVersion     = "0.0.1"
+	PluginVersion     = "0.0.2"
 	PluginDescription = "可配置关键词、匹配方式、触发区域和回复类型的自动回复插件"
 )
 

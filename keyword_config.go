@@ -220,7 +220,7 @@ func (store *RuleStore) Snapshot() []KeywordRule {
 
 func cloneRules(rules []KeywordRule) []KeywordRule {
 	if rules == nil {
-		return nil
+		return []KeywordRule{}
 	}
 	copied := make([]KeywordRule, len(rules))
 	for i, rule := range rules {
