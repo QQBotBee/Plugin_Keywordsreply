@@ -190,6 +190,12 @@ textarea {
   resize: vertical;
 }
 
+.field-help {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
 .grid {
   display: grid;
   grid-template-columns: 1fr 180px;

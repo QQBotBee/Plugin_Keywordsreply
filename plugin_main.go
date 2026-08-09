@@ -8,7 +8,7 @@ import (
 const (
 	PluginName        = "关键词回复插件"
 	PluginAuthor      = "周星星"
-	PluginVersion     = "1.0.0"
+	PluginVersion     = "0.0.1"
 	PluginDescription = "可配置关键词、匹配方式、触发区域和回复类型的自动回复插件"
 )
 

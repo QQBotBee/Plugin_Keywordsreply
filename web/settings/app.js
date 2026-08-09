@@ -14,6 +14,7 @@
     caseSensitive: document.getElementById("case-sensitive"),
     replyType: document.getElementById("reply-type"),
     contents: document.getElementById("contents"),
+    contentHelp: document.getElementById("content-help"),
     status: document.getElementById("status"),
     newRule: document.getElementById("new-rule"),
     saveRule: document.getElementById("save-rule"),
@@ -119,6 +120,18 @@
         }
       }
     });
+    updateContentHelp();
+  }
+
+  function updateContentHelp() {
+    const hints = {
+      text: "普通消息支持一个 [图片=本地路径或网址] 标记，例如：请选择功能 [图片=https://example.com/menu.png]。空地址或多个图片标记会保存失败。",
+      markdown: "Markdown 内容会按原生 Markdown 发送；频道私信会自动降级为普通文字。",
+      audio: "语音回复每行填写一个本地路径或网址，仅支持 QQ 好友和群聊。",
+      video: "视频回复每行填写一个本地路径或网址，仅支持 QQ 好友和群聊。",
+      file: "文件回复每行填写一个本地路径或网址，仅支持 QQ 好友和群聊。"
+    };
+    elements.contentHelp.textContent = hints[elements.replyType.value] || "";
   }
 
   async function loadRules() {
